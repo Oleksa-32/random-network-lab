@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: netlab-web
+    env_file: .env
+    depends_on:
+      - postgres
+      - mongo
+    ports:
+      - "8000:8000"
+
+  postgres:
+    image: postgres:16
+    container_name: netlab-postgres
+    environment:
+      POSTGRES_DB: netlab
+      POSTGRES_USER: netlab
+      POSTGRES_PASSWORD: netlab
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: netlab-mongo
+    environment:
+      MONGO_INITDB_DATABASE: random_netlab
+    volumes:
+      - mongodata:/data/db
+    ports:
+      - "27017:27017"
+
+volumes:
+  pgdata:
+  mongodata:

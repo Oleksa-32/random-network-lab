@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Історія досліджень</h2>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Час</th>
+      <th>Режим</th>
+      <th>Генератор</th>
+      <th>Параметри</th>
+      <th>Дії</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in items %}
+    <tr>
+      <td>{{ s.id }}</td>
+      <td>{{ s.created_at }}</td>
+      <td>{{ s.mode }}</td>
+      <td>{{ s.generator }}</td>
+      <td><code>{{ s.params }}</code></td>
+      <td><a class="btn" href="{{ url_for('study_detail', study_id=s.id) }}">Переглянути</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

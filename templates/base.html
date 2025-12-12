@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Random NetLab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a href="{{ url_for('index') }}" class="brand">Random NetLab</a>
+    <nav>
+      <a href="{{ url_for('popular_page') }}">Популярні мережі</a>
+      <a href="{{ url_for('studies') }}">Історія досліджень</a>
+      <a href="https://networkx.org/documentation/latest/reference/index.html" target="_blank" rel="noopener">
+        NetworkX docs
+      </a>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash">
+          {% for category, message in messages %}
+            <div class="flash-item {{category}}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

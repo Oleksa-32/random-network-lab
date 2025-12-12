@@ -1,0 +1,64 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# ===== Virtual environments =====
+.venv/
+venv/
+ENV/
+env/
+
+# ===== Environment variables =====
+.env
+.env.*
+!.env.example
+
+# ===== Flask =====
+instance/
+*.sqlite
+*.db
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDEs =====
+.idea/
+.vscode/
+*.iml
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== Node / frontend (just in case) =====
+node_modules/
+
+# ===== Docker =====
+docker-data/
+.pgdata/
+.mongodata/
+
+# ===== Uploaded / generated data =====
+uploads/
+data/tmp/
+data/cache/
+
+# ===== Coverage / tests =====
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ===== Misc =====
+*.swp
+*.swo

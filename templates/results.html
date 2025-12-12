@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Результати дослідження #{{ study.id }}</h2>
+<p><strong>Час:</strong> {{ study.created_at }}</p>
+<p><strong>Режим:</strong> {{ study.mode }}</p>
+<p><strong>Генератор:</strong> {{ study.generator }}</p>
+
+<h3>Параметри</h3>
+<pre>{{ study.params | tojson(indent=2) }}</pre>
+
+<h3>Метрики</h3>
+<pre>{{ study.results | tojson(indent=2) }}</pre>
+
+{% if graph_json %}
+<h3>Візуалізація мережі (D3)</h3>
+<div id="graphWrap" class="card">
+  <svg id="graphSvg" width="100%" height="560"></svg>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+  const data = {{ graph_json|safe }};
+
+  const svg = d3.select("#graphSvg");
+  const width = svg.node().clientWidth;
+  const height = +svg.attr("height");
+
+  const g = svg.append("g");
+  svg.call(d3.zoom().scaleExtent([0.1, 8]).on("zoom", (e) => g.attr("transform", e.transform)));
+
+  const sim = d3.forceSimulation(data.nodes)
+    .force("link", d3.forceLink(data.links).id(d => d.id).distance(50).strength(0.1))
+    .force("charge", d3.forceManyBody().strength(-30))
+    .force("center", d3.forceCenter(width / 2, height / 2));
+
+  const degExtent = d3.extent(data.nodes, d => d.degree);
+  const r = d3.scaleSqrt().domain(degExtent).range([3, 12]);
+
+  const link = g.append("g")
+    .attr("stroke", "#8ba0c9")
+    .attr("stroke-opacity", 0.4)
+    .selectAll("line")
+    .data(data.links)
+    .join("line")
+    .attr("stroke-width", 1);
+
+  const node = g.append("g")
+    .selectAll("circle")
+    .data(data.nodes)
+    .join("circle")
+    .attr("r", d => r(d.degree || 0))
+    .attr("fill", "#6ea8fe")
+    .attr("stroke", "#0a0f1c")
+    .attr("stroke-width", 1.2)
+    .call(drag(sim));
+
+  node.append("title").text(d => `id: ${d.id}\ndegree: ${d.degree}`);
+
+  sim.on("tick", () => {
+    link.attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+    node.attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+  });
+
+  const ro = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const w = entry.contentRect.width;
+      svg.attr("width", w);
+      sim.force("center", d3.forceCenter(w / 2, height / 2)).alpha(0.2).restart();
+    }
+  });
+  ro.observe(document.getElementById("graphWrap"));
+
+  function drag(simulation) {
+    function dragstarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x; d.fy = d.y;
+    }
+    function dragged(event, d) {
+      d.fx = event.x; d.fy = event.y;
+    }
+    function dragended(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null; d.fy = null;
+    }
+    return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
+  }
+</script>
+{% else %}
+<p class="muted">Візуалізація недоступна (немає графа або надто великий розмір).</p>
+{% endif %}
+
+<p style="margin-top:12px">
+  <a class="btn" href="{{ url_for('study_export', study_id=study.id) }}">Завантажити результати (JSON)</a>
+  <a class="btn" href="{{ url_for('study_network_file', study_id=study.id) }}">Завантажити мережу (.txt)</a>
+  <a class="btn" href="{{ url_for('index') }}">Нове дослідження</a>
+  <a class="btn" href="{{ url_for('studies') }}">До історії</a>
+</p>
+
+{% endblock %}

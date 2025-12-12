@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Генерація та дослідження випадкових мереж{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Генерація та дослідження випадкових мереж</h1>
+
+  {% if popular %}
+    <div class="card" style="margin-bottom:16px;">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="muted">Обрана популярна мережа:</div>
+          <div style="font-weight:600; margin-top:4px;">{{ popular.title }}</div>
+          <div class="muted" style="font-size:13px; margin-top:4px;">
+            Файл: {{ popular.filename }}
+          </div>
+          {% if popular.description %}
+          <div class="muted" style="font-size:13px; margin-top:4px;">
+            {{ popular.description }}
+          </div>
+          {% endif %}
+        </div>
+        <div class="muted" style="font-size:13px; text-align:right;">
+          Режим: <strong>одиничний</strong> (фіксовано для популярних мереж)
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <form method="post" action="{{ url_for('analyze') }}" enctype="multipart/form-data">
+
+      {% if popular %}
+        <!-- Для популярних мереж: завжди одиничний режим, спеціальний генератор -->
+        <input type="hidden" name="mode" value="single">
+        <input type="hidden" name="generator" value="popular_file">
+        <input type="hidden" name="popular_slug" value="{{ popular.slug }}">
+      {% else %}
+        <!-- Режим -->
+        <div class="row">
+          <div style="min-width:140px;">Режим:</div>
+          <div>
+            <label style="margin-right:12px;">
+              <input type="radio" name="mode" value="single" checked> Одиничний
+            </label>
+            <label>
+              <input type="radio" name="mode" value="group"> Груповий
+            </label>
+          </div>
+        </div>
+
+        <!-- Джерело мережі -->
+        <div class="row">
+          <div style="min-width:140px;">Джерело мережі:</div>
+          <div style="flex:1;">
+            <select name="generator" id="generator" style="width:260px;">
+              <option value="er">Ердош—Рені (n, p)</option>
+              <option value="ws">Вотс—Строґац</option>
+              <option value="ba">Барабаші—Альберт</option>
+              <option value="file">Із файлу (.txt/.csv/.edgelist)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Параметри для генераторів -->
+        <div id="er_params">
+          <div class="row">
+            <div style="min-width:140px;">n:</div>
+            <div><input type="number" name="er_n" value="200" style="width:120px;"></div>
+            <div style="min-width:60px; text-align:right;">p:</div>
+            <div><input type="number" name="er_p" step="0.001" value="0.02" style="width:120px;"></div>
+          </div>
+        </div>
+
+        <div id="ws_params" class="hidden">
+          <div class="row">
+            <div style="min-width:140px;">n:</div>
+            <div><input type="number" name="ws_n" value="200" style="width:120px;"></div>
+            <div style="min-width:60px; text-align:right;">k:</div>
+            <div><input type="number" name="ws_k" value="4" style="width:120px;"></div>
+            <div style="min-width:60px; text-align:right;">p:</div>
+            <div><input type="number" name="ws_p" step="0.01" value="0.1" style="width:120px;"></div>
+          </div>
+        </div>
+
+        <div id="ba_params" class="hidden">
+          <div class="row">
+            <div style="min-width:140px;">n:</div>
+            <div><input type="number" name="ba_n" value="200" style="width:120px;"></div>
+            <div style="min-width:60px; text-align:right;">m:</div>
+            <div><input type="number" name="ba_m" value="2" style="width:120px;"></div>
+          </div>
+        </div>
+
+        <!-- Параметри групового режиму -->
+        <div id="group_params" class="hidden">
+          <div class="row">
+            <div style="min-width:140px;">Кількість мереж:</div>
+            <div><input type="number" name="group_count" value="10" style="width:120px;"></div>
+          </div>
+        </div>
+
+        <!-- Завантаження файлу -->
+        <div id="file_params" class="hidden">
+          <div class="row">
+            <div style="min-width:140px;">Файл мережі:</div>
+            <div>
+              <input type="file" name="file">
+              <div class="muted" style="font-size:12px; margin-top:4px;">
+                Edge list (u v) або матриця суміжності. Формати: .txt, .csv, .edgelist
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Метрики -->
+      <fieldset style="margin-top:16px;">
+        <legend>Метрики</legend>
+        <div class="grid">
+          <div>
+            <label>
+              <input type="checkbox" name="metrics" value="avg_clustering" checked>
+              Середня кластеризація
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="diameter">
+              Діаметр (найбільша КК)
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="betweenness_centrality">
+              Посередництва (mean/max)
+            </label>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" name="metrics" value="transitivity" checked>
+              Транзитивність
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="assortativity_degree">
+              Асортативність (ступенева)
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="closeness_centrality">
+              Близькості (mean/max)
+            </label>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" name="metrics" value="avg_shortest_path_length">
+              Середня довжина шляху (найбільша КК)
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="degree_centrality" checked>
+              Ступенева центральність (mean/max)
+            </label><br>
+            <label>
+              <input type="checkbox" name="metrics" value="eigenvector_centrality">
+              Власних векторів (mean/max)
+            </label>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Додатково -->
+      <fieldset style="margin-top:16px;">
+        <legend>Додатково</legend>
+        <div class="grid">
+          <div>
+            <label>
+              <input type="checkbox" name="corr_nodewise">
+              Кореляції центральностей (одинична мережа)
+            </label>
+          </div>
+          {% if not popular %}
+          <div>
+            <label>
+              <input type="checkbox" name="corr_group">
+              Кореляції метрик (груповий режим)
+            </label>
+          </div>
+          {% endif %}
+        </div>
+      </fieldset>
+
+      <div style="margin-top:16px;">
+        <button type="submit">Запустити</button>
+        <a href="{{ url_for('popular_page') }}" class="btn">Популярні мережі</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+{% if not popular %}
+<script>
+  (function () {
+    const genSel = document.getElementById('generator');
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+
+    const erParams = document.getElementById('er_params');
+    const wsParams = document.getElementById('ws_params');
+    const baParams = document.getElementById('ba_params');
+    const fileParams = document.getElementById('file_params');
+    const groupParams = document.getElementById('group_params');
+
+    function updateGenerator() {
+      const g = genSel.value;
+      erParams.classList.toggle('hidden', g !== 'er');
+      wsParams.classList.toggle('hidden', g !== 'ws');
+      baParams.classList.toggle('hidden', g !== 'ba');
+      fileParams.classList.toggle('hidden', g !== 'file');
+    }
+
+    function updateMode() {
+      const mode = [...modeRadios].find(r => r.checked)?.value || 'single';
+      groupParams.classList.toggle('hidden', mode !== 'group');
+    }
+
+    genSel.addEventListener('change', updateGenerator);
+    modeRadios.forEach(r => r.addEventListener('change', updateMode));
+
+    updateGenerator();
+    updateMode();
+  })();
+</script>
+{% endif %}
+{% endblock %}

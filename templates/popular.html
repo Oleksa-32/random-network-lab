@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Popular Networks{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="mb-3">Popular Networks</h1>
+  <p class="mb-3">
+    Choose one of the classic networks and then select what to analyze on the next page.
+  </p>
+
+  {% if not items %}
+    <div class="alert alert-warning">
+      No popular network files found. Put them into <code>data/popular/</code>.
+    </div>
+  {% else %}
+    <div class="row">
+      {% for item in items %}
+        <div class="col-md-6 mb-3">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">{{ item.title }}</h5>
+              <h6 class="card-subtitle mb-2 text-muted">{{ item.filename }}</h6>
+              {% if item.description %}
+                <p class="card-text">{{ item.description }}</p>
+              {% endif %}
+              <a href="{{ url_for('index', popular=item.slug) }}" class="btn btn-primary">
+                Analyze
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">
+    Back to main page
+  </a>
+</div>
+{% endblock %}
