@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from collections import defaultdict
+from typing import Any, Dict, List
 
 import networkx as nx
 import numpy as np
@@ -34,22 +35,114 @@ def pearson_corr(xs: List[float | None], ys: List[float | None]) -> float | None
             continue
         x_f.append(xv)
         y_f.append(yv)
+
     if len(x_f) < 2:
         return None
+
     x_arr = np.asarray(x_f, dtype=float)
     y_arr = np.asarray(y_f, dtype=float)
     if np.std(x_arr) == 0 or np.std(y_arr) == 0:
         return None
+
     try:
         return float(np.corrcoef(x_arr, y_arr)[0, 1])
     except Exception:
         return None
 
 
+def long_range_correlations(
+    G: nx.Graph | nx.DiGraph,
+    max_nodes: int = 600,
+    max_pairs: int = 250_000,
+    seed: int = 42,
+    directed_mode: str = "out_in",
+) -> Dict[str, Any]:
+    nodes = list(G.nodes())
+    n_total = len(nodes)
+    if n_total == 0:
+        return {"used_nodes": 0, "total_nodes": 0, "pairs": 0, "by_distance": []}
+
+    if n_total > max_nodes:
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(n_total, size=max_nodes, replace=False)
+        nodes = [nodes[i] for i in idx]
+
+    node_to_i = {node: i for i, node in enumerate(nodes)}
+    used_set = set(nodes)
+
+    if isinstance(G, nx.DiGraph):
+        if directed_mode == "out_in":
+            deg_u = {u: float(G.out_degree(u)) for u in used_set}
+            deg_v = {v: float(G.in_degree(v)) for v in used_set}
+        elif directed_mode == "out_out":
+            deg_u = {u: float(G.out_degree(u)) for u in used_set}
+            deg_v = {v: float(G.out_degree(v)) for v in used_set}
+        elif directed_mode == "in_in":
+            deg_u = {u: float(G.in_degree(u)) for u in used_set}
+            deg_v = {v: float(G.in_degree(v)) for v in used_set}
+        else:
+            deg_u = {u: float(G.degree(u)) for u in used_set}
+            deg_v = {v: float(G.degree(v)) for v in used_set}
+    else:
+        deg_u = {u: float(G.degree(u)) for u in used_set}
+        deg_v = deg_u
+
+    buckets_u: Dict[int, List[float]] = defaultdict(list)
+    buckets_v: Dict[int, List[float]] = defaultdict(list)
+
+    pair_count = 0
+    undirected = not isinstance(G, nx.DiGraph)
+
+    for u in nodes:
+        dist = nx.single_source_shortest_path_length(G, u)
+        iu = node_to_i[u]
+        for v, d in dist.items():
+            if v == u or v not in used_set:
+                continue
+            if undirected:
+                iv = node_to_i[v]
+                if iv <= iu:
+                    continue
+
+            buckets_u[int(d)].append(deg_u[u])
+            buckets_v[int(d)].append(deg_v[v])
+
+            pair_count += 1
+            if pair_count >= max_pairs:
+                break
+        if pair_count >= max_pairs:
+            break
+
+    by_distance: List[Dict[str, Any]] = []
+    for d in sorted(buckets_u.keys()):
+        xs = buckets_u[d]
+        ys = buckets_v[d]
+        corr = pearson_corr(xs, ys)
+        by_distance.append(
+            {
+                "distance": int(d),
+                "samples": int(len(xs)),
+                "degree_corr": corr,
+                "u_degree_mean": float(np.mean(xs)) if xs else None,
+                "v_degree_mean": float(np.mean(ys)) if ys else None,
+            }
+        )
+
+    return {
+        "total_nodes": int(n_total),
+        "used_nodes": int(len(nodes)),
+        "pairs": int(pair_count),
+        "directed_mode": directed_mode if isinstance(G, nx.DiGraph) else "undirected",
+        "by_distance": by_distance,
+    }
+
+
 def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
     res: Dict[str, Any] = {}
+
     H = largest_connected_component(G)
     n = G.number_of_nodes()
+
     SMALL = 1500
     MEDIUM = 5000
     LARGE = 10000
@@ -57,8 +150,10 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
     for m in metrics:
         if m == "avg_clustering":
             res[m] = float(nx.average_clustering(G))
+
         elif m == "transitivity":
             res[m] = float(nx.transitivity(G))
+
         elif m == "avg_shortest_path_length":
             val = None
             if H.number_of_nodes() > 1 and n <= MEDIUM:
@@ -67,6 +162,7 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
                 except Exception:
                     val = None
             res[m] = val
+
         elif m == "diameter":
             val = None
             if H.number_of_nodes() > 1 and n <= SMALL:
@@ -75,8 +171,10 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
                 except Exception:
                     val = None
             res[m] = val
+
         elif m == "degree_centrality":
             res[m] = summarize_vector(nx.degree_centrality(G))
+
         elif m == "betweenness_centrality":
             if n <= SMALL:
                 try:
@@ -93,6 +191,7 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
                     res[m] = {"mean": None, "max": None}
             else:
                 res[m] = {"mean": None, "max": None, "note": "skipped (graph too large)"}
+
         elif m == "closeness_centrality":
             if n <= LARGE:
                 try:
@@ -102,6 +201,7 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
                     res[m] = {"mean": None, "max": None}
             else:
                 res[m] = {"mean": None, "max": None, "note": "skipped (graph too large)"}
+
         elif m == "eigenvector_centrality":
             if n <= MEDIUM:
                 try:
@@ -111,11 +211,19 @@ def compute_metrics_single(G: nx.Graph, metrics: List[str]) -> Dict[str, Any]:
                     res[m] = {"mean": None, "max": None}
             else:
                 res[m] = {"mean": None, "max": None, "note": "skipped (graph too large)"}
+
         elif m == "assortativity_degree":
             try:
                 res[m] = float(nx.degree_assortativity_coefficient(G))
             except Exception:
                 res[m] = None
+
+        elif m == "long_range_correlations":
+            if n <= LARGE:
+                res[m] = long_range_correlations(G)
+            else:
+                res[m] = {"note": "skipped (graph too large)"}
+
         else:
             res[m] = None
 
@@ -150,6 +258,7 @@ def centrality_vectors(G: nx.Graph) -> Dict[str, List[float] | None]:
     nodes = list(G.nodes())
     out: Dict[str, List[float] | None] = {}
     n = len(nodes)
+
     SMALL = 1500
     MEDIUM = 5000
     LARGE = 10000
@@ -196,9 +305,15 @@ def centrality_vectors(G: nx.Graph) -> Dict[str, List[float] | None]:
 
 
 def corr_matrix_nodewise(cv: Dict[str, List[float] | None]) -> Dict[str, Dict[str, float | None]]:
-    keys = ["degree_centrality", "betweenness_centrality", "closeness_centrality", "eigenvector_centrality"]
+    keys = [
+        "degree_centrality",
+        "betweenness_centrality",
+        "closeness_centrality",
+        "eigenvector_centrality",
+    ]
     available = [k for k in keys if isinstance(cv.get(k), list)]
     mat: Dict[str, Dict[str, float | None]] = {}
+
     for i, a in enumerate(available):
         mat[a] = {}
         for j, b in enumerate(available):
@@ -217,6 +332,7 @@ def corr_matrix_nodewise(cv: Dict[str, List[float] | None]) -> Dict[str, Dict[st
 def corr_matrix_groupwise(agg_buckets: Dict[str, List[float | None]]) -> Dict[str, Dict[str, float | None]]:
     metrics = list(agg_buckets.keys())
     mat: Dict[str, Dict[str, float | None]] = {}
+
     for i, a in enumerate(metrics):
         mat[a] = {}
         for j, b in enumerate(metrics):

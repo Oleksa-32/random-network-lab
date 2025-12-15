@@ -43,6 +43,7 @@ DEFAULT_METRICS = [
     "betweenness_centrality",
     "closeness_centrality",
     "eigenvector_centrality",
+    "long_range_correlations",
 ]
 
 

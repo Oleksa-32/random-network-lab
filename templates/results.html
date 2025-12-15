@@ -1,3 +1,4 @@
+{# templates/results.html #}
 {% extends "base.html" %}
 {% block content %}
 
@@ -10,8 +11,69 @@
 <pre>{{ study.params | tojson(indent=2) }}</pre>
 
 <h3>Метрики</h3>
-<pre>{{ study.results | tojson(indent=2) }}</pre>
 
+{# --- Long-range correlations (pretty view) --- #}
+{% set lrc = study.results.get("long_range_correlations") %}
+{% if lrc %}
+  <div class="card" style="margin:12px 0; padding:12px;">
+    <h4 style="margin:0 0 8px 0;">Довгосяжні кореляції ступенів (за довжиною найкоротшого шляху)</h4>
+
+    {% if lrc.get("note") %}
+      <p class="muted" style="margin:0;">{{ lrc["note"] }}</p>
+    {% else %}
+      <p class="muted" style="margin:0 0 10px 0;">
+        used_nodes: <strong>{{ lrc.used_nodes }}</strong> / {{ lrc.total_nodes }},
+        pairs: <strong>{{ lrc.pairs }}</strong>,
+        mode: <strong>{{ lrc.directed_mode }}</strong>
+      </p>
+
+      {% if lrc.by_distance and lrc.by_distance|length > 0 %}
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,0.08);">d</th>
+              <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,0.08);">samples</th>
+              <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,0.08);">corr(deg(u), deg(v))</th>
+              <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,0.08);">mean deg(u)</th>
+              <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,0.08);">mean deg(v)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in lrc.by_distance %}
+              <tr>
+                <td style="padding:6px;">{{ row.distance }}</td>
+                <td style="padding:6px;">{{ row.samples }}</td>
+                <td style="padding:6px;">
+                  {% if row.degree_corr is not none %}
+                    {{ "%.4f"|format(row.degree_corr) }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td style="padding:6px;">
+                  {% if row.u_degree_mean is not none %}{{ "%.3f"|format(row.u_degree_mean) }}{% else %}—{% endif %}
+                </td>
+                <td style="padding:6px;">
+                  {% if row.v_degree_mean is not none %}{{ "%.3f"|format(row.v_degree_mean) }}{% else %}—{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted" style="margin:0;">Немає by_distance (мережа роз’єднана або спрацювали ліміти max_pairs/max_nodes).</p>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endif %}
+
+{# --- Optional: show raw results JSON for debugging --- #}
+<details style="margin:12px 0;">
+  <summary class="muted" style="cursor:pointer;">Показати сирий JSON результатів</summary>
+  <pre style="margin-top:8px;">{{ study.results | tojson(indent=2) }}</pre>
+</details>
+
+{# --- Graph visualization (D3) --- #}
 {% if graph_json %}
 <h3>Візуалізація мережі (D3)</h3>
 <div id="graphWrap" class="card">

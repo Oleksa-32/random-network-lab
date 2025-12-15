@@ -52,6 +52,10 @@ def register_routes(app: Flask, graphs_coll):
         generator = request.form.get("generator")
         metrics = request.form.getlist("metrics")
 
+        if mode == "group" and "long_range_correlations" in metrics:
+            metrics = [m for m in metrics if m != "long_range_correlations"]
+            flash("Long-range correlations are available only in single mode.", "error")
+
         want_corr_nodewise = request.form.get("corr_nodewise") == "on"
         want_corr_group = request.form.get("corr_group") == "on"
 
@@ -210,7 +214,7 @@ def register_routes(app: Flask, graphs_coll):
 
             preview_G = gen_fn()
             preview_graph_json = None
-            if preview_G.number_of_nodes() <= 800:
+            if preview_G.number_of_nodes() <= 10000:
                 preview_graph_json = json.dumps(graph_to_d3(preview_G))
 
             for _ in range(count):
@@ -266,8 +270,10 @@ def register_routes(app: Flask, graphs_coll):
     @app.get("/studies/<int:study_id>")
     def study_detail(study_id: int):
         study = Study.query.get_or_404(study_id)
-        d3_data = load_graph_d3_from_mongo(graphs_coll, study_id)
-        graph_json = json.dumps(d3_data) if d3_data is not None else None
+
+        G = load_graph_from_mongo(graphs_coll, study_id)
+        graph_json = json.dumps(graph_to_d3(G)) if G is not None else None
+
         return render_template("results.html", study=study, graph_json=graph_json)
 
     @app.get("/api/studies/<int:study_id>.json")
